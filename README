@@ -1,1 +1,2 @@
+Based on https://github.com/dgryski/go-expirecache . But used generics for storage
 godoc: https://godoc.org/github.com/dgryski/go-expirecache
