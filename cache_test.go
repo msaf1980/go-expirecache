@@ -2,6 +2,8 @@ package expirecache
 
 import (
 	"bytes"
+	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
@@ -126,4 +128,90 @@ func TestCacheExpire(t *testing.T) {
 		t.Errorf("GetOrSet should return existing key if it already exist")
 	}
 
+}
+
+func random(min, max int) int {
+	return rand.Intn(max-min) + min
+}
+
+type kv struct {
+	key   string
+	value string
+}
+
+func Benchmark(b *testing.B) {
+	c := &Cache{cache: make(map[string]element)}
+	vals := []kv{
+		{"1", "string 1"}, {"2", "string 2"}, {"3", "string 3"}, {"4", "string 4"},
+		{"10", "string 10"}, {"100", "string 100"}, {"1000", "string 1000"}, {"10000", "string 10000"},
+	}
+	if len(vals) == 0 {
+		b.Fatal("vals is empty")
+	}
+	b.Run("Set", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			j := random(0, len(vals))
+			c.Set(vals[j].key, vals[j].value, uint64(len(vals[j].value)), 60)
+		}
+	})
+	b.Run("Get", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			j := random(0, len(vals))
+			if b, ok := c.Get(vals[j].key); ok {
+				_ = b.(string)
+			}
+		}
+	})
+}
+
+func benchmarkPCache(b *testing.B, readers, writers uint, vals []kv) {
+	if len(vals) == 0 {
+		b.Fatal("vals is empty")
+	}
+	var wg, wgStart sync.WaitGroup
+
+	c := &Cache{cache: make(map[string]element)}
+
+	wgStart.Add(int(readers+writers) + 1)
+	for i := 0; i < int(readers); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			wgStart.Done()
+			wgStart.Wait()
+			// Test routine
+			for n := 0; n < b.N; n++ {
+				j := random(0, len(vals))
+				c.Set(vals[j].key, vals[j].value, uint64(len(vals[j].value)), 60)
+			}
+			// End test routine
+		}()
+	}
+
+	for i := 0; i < int(writers); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			wgStart.Done()
+			wgStart.Wait()
+			// Test routine
+			for n := 0; n < b.N; n++ {
+				j := random(0, len(vals))
+				if b, ok := c.Get(vals[j].key); ok {
+					_ = b.(string)
+				}
+			}
+			// End test routine
+		}()
+	}
+
+	wgStart.Done()
+	wg.Wait()
+}
+
+func BenchmarkCache_R10_W2(b *testing.B) {
+	benchmarkPCache(b, 10, 2, []kv{
+		{"1", "string 1"}, {"2", "string 2"}, {"3", "string 3"}, {"4", "string 4"},
+		{"10", "string 10"}, {"100", "string 100"}, {"1000", "string 1000"}, {"10000", "string 10000"},
+	})
 }
