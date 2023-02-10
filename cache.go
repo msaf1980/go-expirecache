@@ -173,7 +173,6 @@ func (ec *Cache) clean(now time.Time) {
 	// if we cleaned at least this many, run the loop again
 	const rerunCount = 5
 
-
 	for {
 		var cleaned int
 		// by doing short iterations and releasing the lock in between, we don't block other requests from progressing.
@@ -197,7 +196,6 @@ func (ec *Cache) clean(now time.Time) {
 			return
 		}
 	}
-	return
 }
 
 var (
