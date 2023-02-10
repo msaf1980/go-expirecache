@@ -9,7 +9,7 @@ import (
 
 func TestCacheExpire(t *testing.T) {
 
-	c := &Cache[string]{cache: make(map[string]element[string])}
+	c := &Cache[string, string]{cache: make(map[string]element[string])}
 
 	sleep := make(chan bool)
 	cleanerSleep = func(_ time.Duration) { <-sleep }
@@ -139,7 +139,7 @@ type kv struct {
 }
 
 func Benchmark(b *testing.B) {
-	c := &Cache[string]{cache: make(map[string]element[string])}
+	c := &Cache[string, string]{cache: make(map[string]element[string])}
 	vals := []kv{
 		{"1", "string 1"}, {"2", "string 2"}, {"3", "string 3"}, {"4", "string 4"},
 		{"10", "string 10"}, {"100", "string 100"}, {"1000", "string 1000"}, {"10000", "string 10000"},
@@ -169,7 +169,7 @@ func benchmarkPCache(b *testing.B, readers, writers uint, vals []kv) {
 	}
 	var wg, wgStart sync.WaitGroup
 
-	c := New[string](0)
+	c := New[string, string](0)
 
 	wgStart.Add(int(readers+writers) + 1)
 	for i := 0; i < int(readers); i++ {
