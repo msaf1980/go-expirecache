@@ -1,7 +1,6 @@
 package expirecache
 
 import (
-	"bytes"
 	"math/rand"
 	"sync"
 	"testing"
@@ -10,7 +9,7 @@ import (
 
 func TestCacheExpire(t *testing.T) {
 
-	c := &Cache{cache: make(map[string]element)}
+	c := &Cache[string]{cache: make(map[string]element[string])}
 
 	sleep := make(chan bool)
 	cleanerSleep = func(_ time.Duration) { <-sleep }
@@ -28,9 +27,9 @@ func TestCacheExpire(t *testing.T) {
 
 	timeNow = func() time.Time { return t0 }
 
-	c.Set("foo", []byte("bar"), 3, 30)
-	c.Set("baz", []byte("qux"), 3, 60)
-	c.Set("zot", []byte("bork"), 4, 120)
+	c.Set("foo", "bar", 3, 30)
+	c.Set("baz", "qux", 3, 60)
+	c.Set("zot", "bork", 4, 120)
 
 	type expireTest struct {
 		key string
@@ -50,8 +49,8 @@ func TestCacheExpire(t *testing.T) {
 
 		b, ok := c.Get(p.key)
 
-		if ok != p.ok || (ok != (b != nil)) {
-			t.Errorf("expireCache: bad unexpired cache.Get(%v)=(%v,%v), want %v", p.key, string(b.([]byte)), ok, p.ok)
+		if ok != p.ok || (ok != (b != "")) {
+			t.Errorf("expireCache: bad unexpired cache.Get(%v)=(%v,%v), want %v", p.key, b, ok, p.ok)
 		}
 	}
 
@@ -63,7 +62,7 @@ func TestCacheExpire(t *testing.T) {
 		t.Errorf("unexpired cache size mismatch: got %d, want %d", c.totalSize, 3+3+4)
 	}
 
-	c.Set("baz", []byte("snork"), 5, 60)
+	c.Set("baz", "snork", 5, 60)
 
 	if len(c.keys) != 3 {
 		t.Errorf("unexpired extra keys array length mismatch: got %d, want %d", len(c.keys), 3)
@@ -84,8 +83,8 @@ func TestCacheExpire(t *testing.T) {
 
 	for _, p := range present {
 		b, ok := c.Get(p.key)
-		if ok != p.ok || (ok != (b != nil)) {
-			t.Errorf("expireCache: bad partial expire cache.Get(%v)=(%v,%v), want %v", p.key, string(b.([]byte)), ok, p.ok)
+		if ok != p.ok || (ok != (b != "")) {
+			t.Errorf("expireCache: bad partial expire cache.Get(%v)=(%v,%v), want %v", p.key, b, ok, p.ok)
 		}
 	}
 
@@ -102,8 +101,8 @@ func TestCacheExpire(t *testing.T) {
 
 	for _, p := range present {
 		b, ok := c.Get(p.key)
-		if ok != p.ok || (ok != (b != nil)) {
-			t.Errorf("expireCache: bad partial expire cache.Get(%v)=(%v,%v), want %v", p.key, string(b.([]byte)), ok, p.ok)
+		if ok != p.ok || (ok != (b != "")) {
+			t.Errorf("expireCache: bad partial expire cache.Get(%v)=(%v,%v), want %v", p.key, b, ok, p.ok)
 		}
 	}
 
@@ -116,15 +115,15 @@ func TestCacheExpire(t *testing.T) {
 	}
 
 	// getOrSet test
-	d := []byte("bar")
+	d := "bar"
 	b := c.GetOrSet("bork", d, 3, 30)
-	if bytes.Compare(b.([]byte), d) != 0 {
+	if b != d {
 		t.Errorf("GetOrSet should return the same object if key doesn't exist")
 	}
 
-	d2 := []byte("baz")
+	d2 := "baz"
 	b = c.GetOrSet("bork", d2, 3, 30)
-	if bytes.Compare(b.([]byte), d) != 0 {
+	if b != d {
 		t.Errorf("GetOrSet should return existing key if it already exist")
 	}
 
@@ -140,7 +139,7 @@ type kv struct {
 }
 
 func Benchmark(b *testing.B) {
-	c := &Cache{cache: make(map[string]element)}
+	c := &Cache[string]{cache: make(map[string]element[string])}
 	vals := []kv{
 		{"1", "string 1"}, {"2", "string 2"}, {"3", "string 3"}, {"4", "string 4"},
 		{"10", "string 10"}, {"100", "string 100"}, {"1000", "string 1000"}, {"10000", "string 10000"},
@@ -157,8 +156,8 @@ func Benchmark(b *testing.B) {
 	b.Run("Get", func(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			j := random(0, len(vals))
-			if b, ok := c.Get(vals[j].key); ok {
-				_ = b.(string)
+			if s, ok := c.Get(vals[j].key); ok {
+				_ = s
 			}
 		}
 	})
@@ -170,7 +169,7 @@ func benchmarkPCache(b *testing.B, readers, writers uint, vals []kv) {
 	}
 	var wg, wgStart sync.WaitGroup
 
-	c := &Cache{cache: make(map[string]element)}
+	c := New[string](0)
 
 	wgStart.Add(int(readers+writers) + 1)
 	for i := 0; i < int(readers); i++ {
@@ -197,8 +196,8 @@ func benchmarkPCache(b *testing.B, readers, writers uint, vals []kv) {
 			// Test routine
 			for n := 0; n < b.N; n++ {
 				j := random(0, len(vals))
-				if b, ok := c.Get(vals[j].key); ok {
-					_ = b.(string)
+				if s, ok := c.Get(vals[j].key); ok {
+					_ = s
 				}
 			}
 			// End test routine
