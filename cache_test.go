@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+func TestNew(t *testing.T) {
+	_ = New[string, []byte](1024)
+	_ = New[string, string](1024)
+}
+
 func TestCacheExpire(t *testing.T) {
 
 	c := &Cache[string, string]{cache: make(map[string]element[string])}
